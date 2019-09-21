@@ -302,7 +302,7 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
         AVCaptureConnection *connection = [_stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
         id takePictureSuccess = ^(CMSampleBufferRef sampleBuffer,NSError *error){
             if (sampleBuffer == NULL) {
-                result([error flutterError]);
+                result([FlutterError errorWithCode:error.domain message:error.description details:nil]);
                 return ;
             }
             NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:sampleBuffer];
