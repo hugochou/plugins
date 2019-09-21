@@ -168,6 +168,7 @@ static ResolutionPreset getResolutionPresetForString(NSString *preset) {
 @property(readonly, nonatomic) AVCaptureSession *captureSession;
 @property(readonly, nonatomic) AVCaptureDevice *captureDevice;
 @property(readonly, nonatomic) AVCapturePhotoOutput *capturePhotoOutput;
+@property(readonly, nonatomic) AVCaptureStillImageOutput *stillImageOutput;
 @property(readonly, nonatomic) AVCaptureVideoDataOutput *captureVideoOutput;
 @property(readonly, nonatomic) AVCaptureInput *captureVideoInput;
 @property(readonly) CVPixelBufferRef volatile latestPixelBuffer;
@@ -254,9 +255,19 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
   [_captureSession addInputWithNoConnections:_captureVideoInput];
   [_captureSession addOutputWithNoConnections:_captureVideoOutput];
   [_captureSession addConnection:connection];
-  _capturePhotoOutput = [AVCapturePhotoOutput new];
-  [_capturePhotoOutput setHighResolutionCaptureEnabled:YES];
-  [_captureSession addOutput:_capturePhotoOutput];
+
+    if (@available(iOS 10.0, *)) {
+        _capturePhotoOutput = [AVCapturePhotoOutput new];
+        [_capturePhotoOutput setHighResolutionCaptureEnabled:YES];
+        [_captureSession addOutput:_capturePhotoOutput];
+    } else {
+        AVCaptureStillImageOutput *imageOutput = [[AVCaptureStillImageOutput alloc] init];
+        imageOutput.outputSettings = @{AVVideoCodecKey:AVVideoCodecJPEG};
+        if ([_captureSession canAddOutput:imageOutput]) {
+            [_captureSession addOutput:imageOutput];
+            _stillImageOutput = imageOutput;
+        }
+    }
   _motionManager = [[CMMotionManager alloc] init];
   [_motionManager startAccelerometerUpdates];
 
@@ -273,6 +284,9 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
 }
 
 - (void)captureToFile:(NSString *)path result:(FlutterResult)result {
+
+
+    if (@available(iOS 10.0, *)) {
   AVCapturePhotoSettings *settings = [AVCapturePhotoSettings photoSettings];
   if (_resolutionPreset == max) {
     [settings setHighResolutionPhotoEnabled:YES];
@@ -283,6 +297,26 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
                                                                    result:result
                                                             motionManager:_motionManager
                                                            cameraPosition:_captureDevice.position]];
+    } else {
+        // 输出图片
+        AVCaptureConnection *connection = [_stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
+        id takePictureSuccess = ^(CMSampleBufferRef sampleBuffer,NSError *error){
+            if (sampleBuffer == NULL) {
+                result([error flutterError]);
+                return ;
+            }
+            NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:sampleBuffer];
+
+            bool success = [imageData writeToFile:path atomically:YES];
+            if (!success) {
+                result([FlutterError errorWithCode:@"IOError" message:@"Unable to write file" details:nil]);
+                return;
+            }
+
+            result(nil);
+        };
+        [_stillImageOutput captureStillImageAsynchronouslyFromConnection:connection completionHandler:takePictureSuccess];
+    }
 }
 
 - (void)setCaptureSessionPreset:(ResolutionPreset)resolutionPreset {
@@ -801,11 +835,16 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
 
 - (void)handleMethodCallAsync:(FlutterMethodCall *)call result:(FlutterResult)result {
   if ([@"availableCameras" isEqualToString:call.method]) {
-    AVCaptureDeviceDiscoverySession *discoverySession = [AVCaptureDeviceDiscoverySession
-        discoverySessionWithDeviceTypes:@[ AVCaptureDeviceTypeBuiltInWideAngleCamera ]
-                              mediaType:AVMediaTypeVideo
-                               position:AVCaptureDevicePositionUnspecified];
-    NSArray<AVCaptureDevice *> *devices = discoverySession.devices;
+        NSArray<AVCaptureDevice *> *devices;
+        if (@available(iOS 10.0, *)) {
+            AVCaptureDeviceDiscoverySession *discoverySession = [AVCaptureDeviceDiscoverySession
+                                                                 discoverySessionWithDeviceTypes:@[ AVCaptureDeviceTypeBuiltInWideAngleCamera ]
+                                                                 mediaType:AVMediaTypeVideo
+                                                                 position:AVCaptureDevicePositionUnspecified];
+            devices = discoverySession.devices;
+        } else {
+            devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
+        }
     NSMutableArray<NSDictionary<NSString *, NSObject *> *> *reply =
         [[NSMutableArray alloc] initWithCapacity:devices.count];
     for (AVCaptureDevice *device in devices) {
