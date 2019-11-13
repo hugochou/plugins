@@ -12,8 +12,6 @@ import android.os.Handler;
 import android.view.View;
 import android.webkit.WebStorage;
 import android.webkit.WebViewClient;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
@@ -38,7 +36,7 @@ public class FlutterWebView implements PlatformView, MethodCallHandler {
       BinaryMessenger messenger,
       int id,
       Map<String, Object> params,
-      @Nullable View containerView) {
+      View containerView) {
 
     DisplayListenerProxy displayListenerProxy = new DisplayListenerProxy();
     DisplayManager displayManager =
@@ -97,12 +95,22 @@ public class FlutterWebView implements PlatformView, MethodCallHandler {
     webView.lockInputConnection();
   }
 
-  @Override
-  public void onFlutterViewAttached(@NonNull View flutterView) {
+  // @Override
+  // This is overriding a method that hasn't rolled into stable Flutter yet. Including the
+  // annotation would cause compile time failures in versions of Flutter too old to include the new
+  // method. However leaving it raw like this means that the method will be ignored in old versions
+  // of Flutter but used as an override anyway wherever it's actually defined.
+  // TODO(mklim): Add the @Override annotation once stable passes v1.10.9.
+  public void onFlutterViewAttached(View flutterView) {
     webView.setContainerView(flutterView);
   }
 
-  @Override
+  // @Override
+  // This is overriding a method that hasn't rolled into stable Flutter yet. Including the
+  // annotation would cause compile time failures in versions of Flutter too old to include the new
+  // method. However leaving it raw like this means that the method will be ignored in old versions
+  // of Flutter but used as an override anyway wherever it's actually defined.
+  // TODO(mklim): Add the @Override annotation once stable passes v1.10.9.
   public void onFlutterViewDetached() {
     webView.setContainerView(null);
   }

@@ -4,8 +4,6 @@
 
 package io.flutter.plugins.webviewflutter;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
@@ -20,11 +18,16 @@ import io.flutter.plugin.common.PluginRegistry.Registrar;
  */
 public class WebViewFlutterPlugin implements FlutterPlugin {
 
-  private @Nullable FlutterCookieManager flutterCookieManager;
+  private FlutterCookieManager flutterCookieManager;
 
   /**
    * Add an instance of this to {@link io.flutter.embedding.engine.plugins.PluginRegistry} to
    * register it.
+   *
+   * <p>THIS PLUGIN CODE PATH DEPENDS ON A NEWER VERSION OF FLUTTER THAN THE ONE DEFINED IN THE
+   * PUBSPEC.YAML. Text input will fail on some Android devices unless this is used with at least
+   * flutter/flutter@1d4d63ace1f801a022ea9ec737bf8c15395588b9. Use the V1 embedding with {@link
+   * #registerWith(Registrar)} to use this plugin with older Flutter versions.
    *
    * <p>Registration should eventually be handled automatically by v2 of the
    * GeneratedPluginRegistrant. https://github.com/flutter/flutter/issues/42694
@@ -48,7 +51,7 @@ public class WebViewFlutterPlugin implements FlutterPlugin {
   }
 
   @Override
-  public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
+  public void onAttachedToEngine(FlutterPluginBinding binding) {
     BinaryMessenger messenger = binding.getFlutterEngine().getDartExecutor();
     binding
         .getFlutterEngine()
@@ -60,7 +63,7 @@ public class WebViewFlutterPlugin implements FlutterPlugin {
   }
 
   @Override
-  public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+  public void onDetachedFromEngine(FlutterPluginBinding binding) {
     if (flutterCookieManager == null) {
       return;
     }
