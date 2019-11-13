@@ -158,6 +158,7 @@ static ResolutionPreset getResolutionPresetForString(NSString *preset) {
 @interface FLTCam : NSObject <FlutterTexture,
                               AVCaptureVideoDataOutputSampleBufferDelegate,
                               AVCaptureAudioDataOutputSampleBufferDelegate,
+                              AVCaptureMetadataOutputObjectsDelegate,
                               FlutterStreamHandler>
 @property(readonly, nonatomic) int64_t textureId;
 @property(nonatomic, copy) void (^onFrameAvailable)();
@@ -171,6 +172,7 @@ static ResolutionPreset getResolutionPresetForString(NSString *preset) {
 @property(readonly, nonatomic) AVCaptureStillImageOutput *stillImageOutput;
 @property(readonly, nonatomic) AVCaptureVideoDataOutput *captureVideoOutput;
 @property(readonly, nonatomic) AVCaptureInput *captureVideoInput;
+@property(readonly, nonatomic) AVCaptureMetadataOutput *captureMetadataOutput;
 @property(readonly) CVPixelBufferRef volatile latestPixelBuffer;
 @property(readonly, nonatomic) CGSize previewSize;
 @property(readonly, nonatomic) CGSize captureSize;
@@ -256,18 +258,24 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
   [_captureSession addOutputWithNoConnections:_captureVideoOutput];
   [_captureSession addConnection:connection];
 
-    if (@available(iOS 10.0, *)) {
-        _capturePhotoOutput = [AVCapturePhotoOutput new];
-        [_capturePhotoOutput setHighResolutionCaptureEnabled:YES];
-        [_captureSession addOutput:_capturePhotoOutput];
-    } else {
-        AVCaptureStillImageOutput *imageOutput = [[AVCaptureStillImageOutput alloc] init];
-        imageOutput.outputSettings = @{AVVideoCodecKey:AVVideoCodecJPEG};
-        if ([_captureSession canAddOutput:imageOutput]) {
-            [_captureSession addOutput:imageOutput];
-            _stillImageOutput = imageOutput;
-        }
-    }
+  if (@available(iOS 10.0, *)) {
+      _capturePhotoOutput = [AVCapturePhotoOutput new];
+      [_capturePhotoOutput setHighResolutionCaptureEnabled:YES];
+      [_captureSession addOutput:_capturePhotoOutput];
+  } else {
+      AVCaptureStillImageOutput *imageOutput = [[AVCaptureStillImageOutput alloc] init];
+      imageOutput.outputSettings = @{AVVideoCodecKey:AVVideoCodecJPEG};
+      if ([_captureSession canAddOutput:imageOutput]) {
+          [_captureSession addOutput:imageOutput];
+          _stillImageOutput = imageOutput;
+      }
+  }
+  
+  _captureMetadataOutput = [[AVCaptureMetadataOutput alloc] init];
+  [_captureSession addOutput:_captureMetadataOutput];
+  [_captureMetadataOutput setMetadataObjectTypes: @[AVMetadataObjectTypeCode128Code, AVMetadataObjectTypeQRCode]];
+  [_captureMetadataOutput setMetadataObjectsDelegate:self queue:_dispatchQueue];
+  
   _motionManager = [[CMMotionManager alloc] init];
   [_motionManager startAccelerometerUpdates];
 
@@ -544,6 +552,22 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
   return sout;
 }
 
+- (void)captureOutput:(AVCaptureOutput *)output didOutputMetadataObjects:(NSArray<__kindof AVMetadataObject *> *)metadataObjects fromConnection:(AVCaptureConnection *)connection {
+  if (metadataObjects != nil && [metadataObjects count] > 0) {
+    AVMetadataMachineReadableCodeObject *metadataObj = [metadataObjects objectAtIndex:0];
+    [self performSelectorOnMainThread:@selector(sendBarcode:) withObject:[metadataObj stringValue] waitUntilDone:NO];
+  }
+}
+
+-(void)sendBarcode:(NSString*)result {
+    if (![result isEqual: @""]) {
+        _eventSink(@{
+                     @"eventType" : @"barcode",
+                     @"data" : result
+                     });
+    }
+}
+
 - (void)newVideoSample:(CMSampleBufferRef)sampleBuffer {
   if (_videoWriter.status != AVAssetWriterStatusWriting) {
     if (_videoWriter.status == AVAssetWriterStatusFailed) {
@@ -701,6 +725,19 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
     _eventSink(
         @{@"event" : @"error", @"errorDescription" : @"Images from camera are not streaming!"});
   }
+}
+
+- (void)flashlightOn:(bool)on result:(FlutterResult)result {
+    NSError *error = nil;
+    [self.captureDevice lockForConfiguration:&error];
+    [self.captureDevice setTorchMode: on ? AVCaptureTorchModeOn : AVCaptureTorchModeOff];
+    [self.captureDevice unlockForConfiguration];
+    if (error) {
+        result(getFlutterError(error));
+    }
+    else {
+        result(nil);
+    }
 }
 
 - (BOOL)setupWriterForPath:(NSString *)path {
@@ -934,6 +971,10 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
       [_camera startVideoRecordingAtPath:call.arguments[@"filePath"] result:result];
     } else if ([@"stopVideoRecording" isEqualToString:call.method]) {
       [_camera stopVideoRecordingWithResult:result];
+    } else if ([@"flashlightOn" isEqualToString:call.method]) {
+      [_camera flashlightOn:YES result:result];
+    } else if ([@"flashlightOff" isEqualToString:call.method]) {
+      [_camera flashlightOn:NO result:result];
     } else {
       result(FlutterMethodNotImplemented);
     }

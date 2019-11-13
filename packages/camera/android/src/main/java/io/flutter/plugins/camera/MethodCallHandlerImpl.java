@@ -123,6 +123,16 @@ final class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
           }
           break;
         }
+      case "flashlightOn":
+        {
+          camera.flashlightOn(result);
+          break;
+        }
+      case "flashlightOff":
+        {
+          camera.flashlightOff(result);
+          break;
+        }
       case "dispose":
         {
           if (camera != null) {

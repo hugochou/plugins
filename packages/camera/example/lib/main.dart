@@ -158,6 +158,8 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
   /// Display the thumbnail of the captured image or video.
   Widget _thumbnailWidget() {
+    print('imagePath: $imagePath');
+    print('videoController: $videoController');
     return Expanded(
       child: Align(
         alignment: Alignment.centerRight,
@@ -235,7 +237,16 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                   controller.value.isRecordingVideo
               ? onStopButtonPressed
               : null,
-        )
+        ),
+        IconButton(
+          icon: const Icon(Icons.highlight),
+          color: Colors.amber,
+          onPressed: controller != null &&
+                  controller.value.isInitialized &&
+                  controller.value.isFlashlightOn
+              ? onFlashLightOffPressed
+              : onFlashLightOnPressed,
+        ),
       ],
     );
   }
@@ -288,6 +299,9 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       if (mounted) setState(() {});
       if (controller.value.hasError) {
         showInSnackBar('Camera error ${controller.value.errorDescription}');
+      }
+      if (controller.value.hasBarcode) {
+        showInSnackBar('Barcode: ${controller.value.barcodeContent}');
       }
     });
 
@@ -455,6 +469,42 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       return null;
     }
     return filePath;
+  }
+
+  void onFlashLightOnPressed() async {
+    if (!controller.value.isInitialized) {
+      showInSnackBar('Error: select a camera first.');
+      return null;
+    }
+
+    if (controller.value.isFlashlightOn) {
+      // A capture is already pending, do nothing.
+      return null;
+    }
+
+    try {
+      await controller.flashlightOn();
+    } on CameraException catch (e) {
+      _showCameraException(e);
+    }
+  }
+
+  void onFlashLightOffPressed() async {
+    if (!controller.value.isInitialized) {
+      showInSnackBar('Error: select a camera first.');
+      return null;
+    }
+
+    if (!controller.value.isFlashlightOn) {
+      // A capture is already pending, do nothing.
+      return null;
+    }
+
+    try {
+      await controller.flashlightOff();
+    } on CameraException catch (e) {
+      _showCameraException(e);
+    }
   }
 
   void _showCameraException(CameraException e) {
