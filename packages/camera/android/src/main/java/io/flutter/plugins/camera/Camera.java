@@ -21,7 +21,6 @@ import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.util.Log;
 import android.util.Size;
 import android.view.OrientationEventListener;
 import android.view.Surface;
@@ -192,7 +191,7 @@ public class Camera {
           int height = image.getHeight();
           handler.removeCallbacksAndMessages(null);
           handler.post(new BarcodeDecoder(data, width, height));
-        }
+        } catch (Throwable ignored) {}
       }
     }, backgroundHandler);
 
