@@ -307,6 +307,8 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
     try {
       await controller.initialize();
+      await controller
+          .setRectOfInterest(const Rect.fromLTWH(0.2, 0.2, 0.6, 0.4));
     } on CameraException catch (e) {
       _showCameraException(e);
     }

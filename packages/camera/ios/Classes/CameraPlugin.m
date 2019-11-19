@@ -740,6 +740,11 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
     }
 }
 
+- (void)setRectOfInterest:(CGRect)rect result:(FlutterResult)result {
+    [self.captureMetadataOutput setRectOfInterest:rect];
+    result(nil);
+}
+
 - (BOOL)setupWriterForPath:(NSString *)path {
   NSError *error = nil;
   NSURL *outputURL;
@@ -975,6 +980,12 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
       [_camera flashlightOn:YES result:result];
     } else if ([@"flashlightOff" isEqualToString:call.method]) {
       [_camera flashlightOn:NO result:result];
+    } else if ([@"setRectOfInterest" isEqualToString:call.method]) {
+      CGFloat left = [(argsMap[@"left"]) floatValue];
+      CGFloat top = [(argsMap[@"top"]) floatValue];
+      CGFloat right = [(argsMap[@"right"]) floatValue];
+      CGFloat bottom = [(argsMap[@"bottom"]) floatValue];
+      [_camera setRectOfInterest:CGRectMake(top, 1 - right, bottom - top, right - left) result:result];
     } else {
       result(FlutterMethodNotImplemented);
     }

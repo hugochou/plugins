@@ -1,6 +1,7 @@
 package io.flutter.plugins.camera;
 
 import android.app.Activity;
+import android.graphics.RectF;
 import android.hardware.camera2.CameraAccessException;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -131,6 +132,16 @@ final class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
       case "flashlightOff":
         {
           camera.flashlightOff(result);
+          break;
+        }
+      case "setRectOfInterest":
+        {
+          double left = call.argument("left");
+          double top = call.argument("top");
+          double right = call.argument("right");
+          double bottom = call.argument("bottom");
+          RectF rect = new RectF((float) left, (float) top, (float) right, (float) bottom);
+          camera.setRectOfInterest(rect, result);
           break;
         }
       case "dispose":

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -65,6 +66,7 @@ public class Camera {
   private HandlerThread barcodeThread;
   private ImageReader barcodeImageReader;
   private final MultiFormatReader barcodeReader;
+  private RectF rectOfInterest = new RectF(0, 0, 1, 1);
 
   private CameraDevice cameraDevice;
   private CameraCaptureSession cameraCaptureSession;
@@ -190,7 +192,7 @@ public class Camera {
           int width = image.getWidth();
           int height = image.getHeight();
           handler.removeCallbacksAndMessages(null);
-          handler.post(new BarcodeDecoder(data, width, height));
+          handler.post(new BarcodeDecoder(data, width, height, rectOfInterest));
         } catch (Throwable ignored) {}
       }
     }, backgroundHandler);
@@ -496,6 +498,11 @@ public class Camera {
     }
   }
 
+  public void setRectOfInterest(final RectF rect, @NonNull final Result result) {
+    rectOfInterest = rect;
+    result.success(null);
+  }
+
   public void startPreview() throws CameraAccessException {
     createCaptureSession(CameraDevice.TEMPLATE_RECORD, barcodeImageReader.getSurface());
   }
@@ -607,19 +614,22 @@ public class Camera {
   }
 
   private class BarcodeDecoder implements Runnable {
+    private final RectF rectOfInterest;
     private final byte[] data;
     private final int width;
     private final int height;
 
-    BarcodeDecoder(byte[] data, int width, int height) {
+    BarcodeDecoder(byte[] data, int width, int height, RectF rectOfInterest) {
       this.data = data;
       this.width = width;
       this.height = height;
+      this.rectOfInterest = rectOfInterest;
     }
 
     @Override public void run() {
       try {
-        com.google.zxing.Result result = decode(data, width, height);
+        RectF rect = new RectF(rectOfInterest.top, 1 - rectOfInterest.right, rectOfInterest.bottom, 1 - rectOfInterest.left);
+        com.google.zxing.Result result = decode(data, width, height, rect);
         dartMessenger.sendBarcodeEvent(result.getText());
       } catch (ReaderException e) {
         barcodeReader.reset();
@@ -630,7 +640,7 @@ public class Camera {
               temp[x * height + height - y - 1] = data[x + y * width];
             }
           }
-          com.google.zxing.Result result = decode(temp, height, width);
+          com.google.zxing.Result result = decode(temp, height, width, rectOfInterest);
           dartMessenger.sendBarcodeEvent(result.getText());
         } catch (ReaderException ignored) {}
       } finally {
@@ -638,8 +648,9 @@ public class Camera {
       }
     }
 
-    private com.google.zxing.Result decode(byte[] data, int width, int height) throws NotFoundException {
-      PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height, 0, 0, width, height, false);
+    private com.google.zxing.Result decode(byte[] data, int width, int height, RectF rect) throws NotFoundException {
+      PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(data, width, height, (int) (width * rect.left),
+          (int) (height * rect.top), (int) (width * rect.width()), (int) (height * rect.height()), false);
       BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
       return barcodeReader.decode(bitmap);
     }

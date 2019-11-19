@@ -637,6 +637,30 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
+  /// Set Rect Of Interest.
+  Future<void> setRectOfInterest(Rect rect) async {
+    if (!value.isInitialized || _isDisposed) {
+      throw CameraException(
+        'Uninitialized CameraController',
+        'setRectOfInterest was called on uninitialized CameraController',
+      );
+    }
+    try {
+      await _channel.invokeMethod<void>(
+        'setRectOfInterest',
+        <String, dynamic>{
+          'textureId': _textureId,
+          'left': rect.left,
+          'top': rect.top,
+          'right': rect.right,
+          'bottom': rect.bottom
+        },
+      );
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
   /// Releases the resources of this camera.
   @override
   Future<void> dispose() async {
