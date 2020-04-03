@@ -418,6 +418,13 @@ public class Camera {
     }
 
     try {
+      cameraCaptureSession.stopRepeating();
+      cameraCaptureSession.abortCaptures();
+    } catch (CameraAccessException e) {
+      e.printStackTrace();
+    }
+
+    try {
       recordingVideo = false;
       mediaRecorder.stop();
       mediaRecorder.reset();
