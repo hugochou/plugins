@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
@@ -30,11 +31,9 @@ IconData getCameraLensIcon(CameraLensDirection direction) {
   throw ArgumentError('Unknown lens direction');
 }
 
-void logError(String code, String message) =>
-    print('Error: $code\nError Message: $message');
+void logError(String code, String message) => print('Error: $code\nError Message: $message');
 
-class _CameraExampleHomeState extends State<CameraExampleHome>
-    with WidgetsBindingObserver {
+class _CameraExampleHomeState extends State<CameraExampleHome> with WidgetsBindingObserver {
   CameraController controller;
   String imagePath;
   String videoPath;
@@ -54,17 +53,22 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     super.dispose();
   }
 
+  Completer<void> _resumeCompleter;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // App state changed before we got the chance to initialize.
     if (controller == null || !controller.value.isInitialized) {
       return;
     }
-    if (state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused) {
+      _resumeCompleter = Completer<void>();
       controller?.dispose();
     } else if (state == AppLifecycleState.resumed) {
       if (controller != null) {
-        onNewCameraSelected(controller.description);
+        onNewCameraSelected(controller.description).whenComplete(() => _resumeCompleter.complete());
+      } else {
+        _resumeCompleter.complete();
       }
     }
   }
@@ -77,6 +81,21 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       key: _scaffoldKey,
       appBar: AppBar(
         title: const Text('Camera example'),
+        actions: [
+          IconButton(
+              icon: const Icon(Icons.photo_album),
+              onPressed: controller == null
+                  ? null
+                  : () async {
+                      final FilePickerResult result =
+                          await FilePicker.platform.pickFiles(allowMultiple: false, type: FileType.image);
+                      if (result?.paths?.isNotEmpty == true) {
+                        await _resumeCompleter?.future;
+                        final String code = await controller.fileQrDecode(result.paths.first);
+                        print('=========$code');
+                      }
+                    })
+        ],
       ),
       body: Column(
         children: <Widget>[
@@ -91,9 +110,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
               decoration: BoxDecoration(
                 color: Colors.black,
                 border: Border.all(
-                  color: controller != null && controller.value.isRecordingVideo
-                      ? Colors.redAccent
-                      : Colors.grey,
+                  color: controller != null && controller.value.isRecordingVideo ? Colors.redAccent : Colors.grey,
                   width: 3.0,
                 ),
               ),
@@ -175,13 +192,10 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                             child: Center(
                               child: AspectRatio(
                                   aspectRatio:
-                                      videoController.value.size != null
-                                          ? videoController.value.aspectRatio
-                                          : 1.0,
+                                      videoController.value.size != null ? videoController.value.aspectRatio : 1.0,
                                   child: VideoPlayer(videoController)),
                             ),
-                            decoration: BoxDecoration(
-                                border: Border.all(color: Colors.pink)),
+                            decoration: BoxDecoration(border: Border.all(color: Colors.pink)),
                           ),
                     width: 64.0,
                     height: 64.0,
@@ -201,29 +215,21 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         IconButton(
           icon: const Icon(Icons.camera_alt),
           color: Colors.blue,
-          onPressed: controller != null &&
-                  controller.value.isInitialized &&
-                  !controller.value.isRecordingVideo
+          onPressed: controller != null && controller.value.isInitialized && !controller.value.isRecordingVideo
               ? onTakePictureButtonPressed
               : null,
         ),
         IconButton(
           icon: const Icon(Icons.videocam),
           color: Colors.blue,
-          onPressed: controller != null &&
-                  controller.value.isInitialized &&
-                  !controller.value.isRecordingVideo
+          onPressed: controller != null && controller.value.isInitialized && !controller.value.isRecordingVideo
               ? onVideoRecordButtonPressed
               : null,
         ),
         IconButton(
-          icon: controller != null && controller.value.isRecordingPaused
-              ? Icon(Icons.play_arrow)
-              : Icon(Icons.pause),
+          icon: controller != null && controller.value.isRecordingPaused ? Icon(Icons.play_arrow) : Icon(Icons.pause),
           color: Colors.blue,
-          onPressed: controller != null &&
-                  controller.value.isInitialized &&
-                  controller.value.isRecordingVideo
+          onPressed: controller != null && controller.value.isInitialized && controller.value.isRecordingVideo
               ? (controller != null && controller.value.isRecordingPaused
                   ? onResumeButtonPressed
                   : onPauseButtonPressed)
@@ -232,18 +238,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         IconButton(
           icon: const Icon(Icons.stop),
           color: Colors.red,
-          onPressed: controller != null &&
-                  controller.value.isInitialized &&
-                  controller.value.isRecordingVideo
+          onPressed: controller != null && controller.value.isInitialized && controller.value.isRecordingVideo
               ? onStopButtonPressed
               : null,
         ),
         IconButton(
           icon: const Icon(Icons.highlight),
           color: Colors.amber,
-          onPressed: controller != null &&
-                  controller.value.isInitialized &&
-                  controller.value.isFlashlightOn
+          onPressed: controller != null && controller.value.isInitialized && controller.value.isFlashlightOn
               ? onFlashLightOffPressed
               : onFlashLightOnPressed,
         ),
@@ -266,9 +268,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
               title: Icon(getCameraLensIcon(cameraDescription.lensDirection)),
               groupValue: controller?.description,
               value: cameraDescription,
-              onChanged: controller != null && controller.value.isRecordingVideo
-                  ? null
-                  : onNewCameraSelected,
+              onChanged: controller != null && controller.value.isRecordingVideo ? null : onNewCameraSelected,
             ),
           ),
         );
@@ -284,7 +284,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     _scaffoldKey.currentState.showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void onNewCameraSelected(CameraDescription cameraDescription) async {
+  Future<void> onNewCameraSelected(CameraDescription cameraDescription) async {
     if (controller != null) {
       await controller.dispose();
     }
@@ -307,8 +307,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
     try {
       await controller.initialize();
-      await controller
-          .setRectOfInterest(const Rect.fromLTWH(0.2, 0.2, 0.6, 0.4));
+      await controller.setRectOfInterest(const Rect.fromLTWH(0.2, 0.2, 0.6, 0.4));
     } on CameraException catch (e) {
       _showCameraException(e);
     }
@@ -427,8 +426,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   }
 
   Future<void> _startVideoPlayer() async {
-    final VideoPlayerController vcontroller =
-        VideoPlayerController.file(File(videoPath));
+    final VideoPlayerController vcontroller = VideoPlayerController.file(File(videoPath));
     videoPlayerListener = () {
       if (videoController != null && videoController.value.size != null) {
         // Refreshing the state to update video player with the correct ratio.

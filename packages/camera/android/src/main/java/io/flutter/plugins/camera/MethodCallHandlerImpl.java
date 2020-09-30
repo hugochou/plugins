@@ -3,6 +3,7 @@ package io.flutter.plugins.camera;
 import android.app.Activity;
 import android.graphics.RectF;
 import android.hardware.camera2.CameraAccessException;
+import android.os.AsyncTask;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import io.flutter.plugin.common.BinaryMessenger;
@@ -142,6 +143,21 @@ final class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
           double bottom = call.argument("bottom");
           RectF rect = new RectF((float) left, (float) top, (float) right, (float) bottom);
           camera.setRectOfInterest(rect, result);
+          break;
+        }
+      case "fileQrDecode":
+        {
+          AsyncTask.THREAD_POOL_EXECUTOR.execute(new Runnable() {
+            @Override public void run() {
+              try {
+                final String filePath = call.argument("file");
+                final String qrCode = camera.syncDecodeQRCode(filePath);
+                activity.runOnUiThread(() -> result.success(qrCode));
+              } catch (Throwable e) {
+                activity.runOnUiThread(() -> result.error(e.getClass().getSimpleName(), e.getMessage(), null));
+              }
+            }
+          });
           break;
         }
       case "dispose":

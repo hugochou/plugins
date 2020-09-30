@@ -835,6 +835,21 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
     }
   }
 }
+
+- (void)scanQRCode:(FlutterMethodCall*)call result:(FlutterResult)result{
+  NSString *path = call.arguments[@"file"];
+  UIImage *image = [UIImage imageWithContentsOfFile:path];
+  CIDetector *detector = [CIDetector detectorOfType:CIDetectorTypeQRCode context:nil options:@{CIDetectorAccuracy : CIDetectorAccuracyHigh }];
+  
+  NSArray *features = [detector featuresInImage:[CIImage imageWithCGImage:image.CGImage]];
+  if (features.count > 0) {
+    CIQRCodeFeature *feature = [features objectAtIndex:0];
+    NSString *qrData = feature.messageString;
+    result(qrData);
+  } else {
+    result(NULL);
+  }
+}
 @end
 
 @interface CameraPlugin ()
@@ -986,6 +1001,8 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
       CGFloat right = [(argsMap[@"right"]) floatValue];
       CGFloat bottom = [(argsMap[@"bottom"]) floatValue];
       [_camera setRectOfInterest:CGRectMake(top, 1 - right, bottom - top, right - left) result:result];
+    } else if ([@"fileQrDecode" isEqualToString:call.method]) {
+      [_camera scanQRCode:call result:result];
     } else {
       result(FlutterMethodNotImplemented);
     }

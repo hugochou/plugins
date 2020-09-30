@@ -18,8 +18,9 @@ dependencies:
     sdk: flutter
 
 dev_dependencies:
-  path_provider: ^0.5.0
-  video_player: ^0.10.0
+  path_provider: ^1.6.18
+  video_player: ^0.11.0
+  file_picker: ^2.0.6
   flutter_test:
     sdk: flutter
   flutter_driver:
@@ -31,5 +32,5 @@ flutter:
     pluginClass: CameraPlugin
 
 environment:
-  sdk: ">=2.0.0-dev.28.0 <3.0.0"
-  flutter: ">=1.6.7 <2.0.0"
+  sdk: ">=2.7.0 <3.0.0"
+  flutter: ">=1.20.2"

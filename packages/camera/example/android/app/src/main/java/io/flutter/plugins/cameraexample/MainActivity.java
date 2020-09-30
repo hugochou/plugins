@@ -1,6 +1,7 @@
 package io.flutter.plugins.cameraexample;
 
 import androidx.annotation.NonNull;
+import com.mr.flutter.plugin.filepicker.FilePickerPlugin;
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
 import io.flutter.embedding.engine.plugins.shim.ShimPluginRegistry;
@@ -18,5 +19,6 @@ public class MainActivity extends FlutterActivity {
         shimPluginRegistry.registrarFor("io.flutter.plugins.pathprovider.PathProviderPlugin"));
     VideoPlayerPlugin.registerWith(
         shimPluginRegistry.registrarFor("io.flutter.plugins.videoplayer.VideoPlayerPlugin"));
+    FilePickerPlugin.registerWith( shimPluginRegistry.registrarFor("com.mr.flutter.plugin.filepicker.FilePickerPlugin"));
   }
 }

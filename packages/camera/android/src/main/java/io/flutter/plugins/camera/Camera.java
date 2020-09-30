@@ -3,6 +3,8 @@ package io.flutter.plugins.camera;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
@@ -22,6 +24,7 @@ import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.util.Log;
 import android.util.Size;
 import android.view.OrientationEventListener;
 import android.view.Surface;
@@ -29,11 +32,13 @@ import androidx.annotation.NonNull;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.DecodeHintType;
+import com.google.zxing.LuminanceSource;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.NotFoundException;
 import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.RGBLuminanceSource;
 import com.google.zxing.ReaderException;
+import com.google.zxing.common.GlobalHistogramBinarizer;
 import com.google.zxing.common.HybridBinarizer;
 import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodChannel.Result;
@@ -620,6 +625,82 @@ public class Camera {
             ? 0
             : (isFrontFacing) ? -currentOrientation : currentOrientation;
     return (sensorOrientationOffset + sensorOrientation + 360) % 360;
+  }
+
+
+  /**
+   * 同步解析本地图片二维码。该方法是耗时操作，请在子线程中调用。
+   *
+   * @param picturePath 要解析的二维码图片本地路径
+   * @return 返回二维码图片里的内容 或 null
+   */
+  public String syncDecodeQRCode(String picturePath) {
+    return syncDecodeQRCode(getDecodeAbleBitmap(picturePath));
+  }
+  /**
+   * 同步解析bitmap二维码。该方法是耗时操作，请在子线程中调用。
+   *
+   * @param bitmap 要解析的二维码图片
+   * @return 返回二维码图片里的内容 或 null
+   */
+  public String syncDecodeQRCode(Bitmap bitmap) {
+    com.google.zxing.Result result;
+    RGBLuminanceSource source = null;
+    try {
+      int width = bitmap.getWidth();
+      int height = bitmap.getHeight();
+      int[] pixels = new int[width * height];
+      bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+      source = new RGBLuminanceSource(width, height, pixels);
+      result = barcodeReader.decode(new BinaryBitmap(new HybridBinarizer(source)));
+      return result.getText();
+    } catch (Exception e) {
+      e.printStackTrace();
+      if (source != null) {
+        try {
+          result = barcodeReader.decode(new BinaryBitmap(new GlobalHistogramBinarizer(source)));
+          return result.getText();
+        } catch (Throwable e2) {
+          e2.printStackTrace();
+          try {
+            LuminanceSource invertedSource = source.invert();
+            BinaryBitmap binaryBitmap = new BinaryBitmap(new HybridBinarizer(invertedSource));
+            result = barcodeReader.decode(binaryBitmap);
+            return result.getText();
+          } catch (NotFoundException exception) {
+            exception.printStackTrace();
+            return null;
+          }
+        }
+      }
+      return null;
+    } finally {
+      barcodeReader.reset();
+    }
+  }
+
+  /**
+   * 将本地图片文件转换成可解码二维码的 Bitmap。为了避免图片太大，这里对图片进行了压缩。感谢 https://github.com/devilsen 提的 PR
+   *
+   * @param picturePath 本地图片文件路径
+   * @return
+   */
+  private Bitmap getDecodeAbleBitmap(String picturePath) {
+    try {
+      BitmapFactory.Options options = new BitmapFactory.Options();
+      options.inJustDecodeBounds = true;
+      BitmapFactory.decodeFile(picturePath, options);
+      int sampleSize = options.outHeight / 400;
+      if (sampleSize <= 0) {
+        sampleSize = 1;
+      }
+      options.inSampleSize = sampleSize;
+      options.inJustDecodeBounds = false;
+      return BitmapFactory.decodeFile(picturePath, options);
+    } catch (Exception e) {
+      Log.d("QR", "NOT FOUND INVERTED");
+      return null;
+    }
   }
 
   private class BarcodeDecoder implements Runnable {
