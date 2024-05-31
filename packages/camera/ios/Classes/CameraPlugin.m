@@ -730,7 +730,9 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
 - (void)flashlightOn:(bool)on result:(FlutterResult)result {
     NSError *error = nil;
     [self.captureDevice lockForConfiguration:&error];
-    [self.captureDevice setTorchMode: on ? AVCaptureTorchModeOn : AVCaptureTorchModeOff];
+    if ([self.captureDevice hasFlash]) {
+        [self.captureDevice setTorchMode: on ? AVCaptureTorchModeOn : AVCaptureTorchModeOff];
+    }
     [self.captureDevice unlockForConfiguration];
     if (error) {
         result(getFlutterError(error));
